@@ -10,3 +10,9 @@ Helper package for our go projects.
 ### RenderDataAsJSON()
 
 ### WriteJson()
+
+## Request
+
+## ParseFromRequest()
+
+## ReadAndRewind()
