@@ -4,3 +4,9 @@ Helper package for our go projects.
 ## Slice
 
 ### StringInSlice()
+
+## JSON
+
+### RenderDataAsJSON()
+
+### WriteJson()
