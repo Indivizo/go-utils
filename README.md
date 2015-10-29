@@ -3,16 +3,20 @@ Helper package for our go projects.
 
 ## Slice
 
-### StringInSlice()
+* StringInSlice()
 
 ## JSON
 
-### RenderDataAsJSON()
-
-### WriteJson()
+* RenderDataAsJSON()
+* WriteJson()
 
 ## Request
 
-## ParseFromRequest()
+* ParseFromRequest()
+* ReadAndRewind()
 
-## ReadAndRewind()
+## Error
+
+* ErrInvalidUrl
+* ErrInvalidMail
+* ErrInvalidMongoIdHash
