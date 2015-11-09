@@ -43,3 +43,30 @@ func ReadAndRewind(readCloser *io.ReadCloser) (result io.Reader, err error) {
 
 	return bytes.NewReader(content), err
 }
+
+// GetMatchingPrefixLength returns the length of the path a pattern could match as a prefix.
+// Supports parameters using the ":parameter" or "*parameter" notation.
+func GetMatchingPrefixLength(path, pattern string) int {
+	// Drop the leading slashes.
+	path = strings.Trim(path, "/")
+	pattern = strings.Trim(pattern, "/")
+
+	pathSegments := strings.Split(path, "/")
+	patternSegments := strings.Split(pattern, "/")
+
+	// If the pattern is longer than the path, we will surely can't match it.
+	if len(patternSegments) > len(pathSegments) {
+		return 0
+	}
+
+	i := 0
+	for ; i < len(pathSegments); i++ {
+		if i >= len(patternSegments) || // Run out of pattern segments to match
+			!(pathSegments[i] == patternSegments[i] || // Either the segments has to match
+				strings.HasPrefix(patternSegments[i], ":") || strings.HasPrefix(patternSegments[i], "*")) { // Or the segment is a parameter
+			break
+		}
+	}
+
+	return i
+}
