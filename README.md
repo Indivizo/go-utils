@@ -15,6 +15,7 @@ Helper package for our go projects.
 * ParseFromRequest()
 * ReadAndRewind()
 * GetMatchingPrefixLength()
+* SendRequest()
 
 ## Error
 

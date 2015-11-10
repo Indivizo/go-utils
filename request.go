@@ -6,7 +6,9 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strings"
+	"time"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/dgrijalva/jwt-go"
 )
 
@@ -69,4 +71,79 @@ func GetMatchingPrefixLength(path, pattern string) int {
 	}
 
 	return i
+}
+
+func SendRequest(method string, url string, body io.Reader, expectedStatusCode int, extraHeaders ...http.Header) chan *http.Response {
+	response := make(chan *http.Response)
+	req, err := http.NewRequest(method, url, body)
+	if err != nil {
+		close(response)
+		return response
+	}
+	if len(extraHeaders) > 0 {
+		for _, headers := range extraHeaders {
+			for key, header := range headers {
+				for _, value := range header {
+					req.Header.Add(key, value)
+				}
+			}
+		}
+	}
+
+	client := &http.Client{}
+	go func() {
+		if resp, err := client.Do(req); err != nil || resp.StatusCode != expectedStatusCode {
+			log.WithFields(log.Fields{
+				"method":   method,
+				"url":      url,
+				"error":    err,
+				"response": resp,
+			}).Warn("Send request failed")
+
+			tries := 1
+			delay := 30
+			for {
+				time.Sleep(time.Second * time.Duration(delay))
+
+				if resp, err := client.Do(req); err != nil || resp.StatusCode != expectedStatusCode {
+					log.WithFields(log.Fields{
+						"try":      tries,
+						"method":   method,
+						"url":      url,
+						"error":    err,
+						"response": resp,
+					}).Warn("Send request failed in queue")
+				} else {
+					log.WithFields(log.Fields{
+						"method": method,
+						"url":    url,
+						"tries":  tries,
+					}).Info("Send request is successfull in queue")
+					response <- resp
+					break
+				}
+
+				// Set delay.
+				if tries%10 == 0 {
+					delay = delay * 2
+				}
+				// Quit after 100 tries.
+				if tries == 100 {
+					log.WithFields(log.Fields{
+						"method": method,
+						"url":    url,
+						"try":    tries,
+					}).Error("Send request is failed. The request is removed from the queue")
+					close(response)
+					break
+				}
+
+				tries++
+			}
+		} else {
+			response <- resp
+		}
+	}()
+
+	return response
 }
