@@ -19,7 +19,7 @@ Helper package for our go projects.
 This function will try to send the request in the background several times if the response is failes.
 
 **Example usage:**
-```
+```go
 type MyType struc {
   Field1 string `json:"field1"`
   Field2 string `json:"field2"`
@@ -42,7 +42,7 @@ contentReader := bytes.NewBuffer(queryBody)
   }()
 ```
 If you want to cancel the request just set it in the `cancel` chanel:
-```
+```go
 go func() {
     cancel := make(chan bool)
     utils.SendRequest("POST", "http://example.com", contentReader, http.StatusOK, cancel, http.Header{"Content-Type": []string{"application/json"}})
@@ -51,7 +51,7 @@ go func() {
   }()
 ```
 Or if you want to combine them:
-```
+```go
 go func() {
     cancel := make(chan bool)
     res := utils.SendRequest("POST", "http://example.com", contentReader, http.StatusOK, cancel, http.Header{"Content-Type": []string{"application/json"}})

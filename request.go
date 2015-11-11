@@ -164,7 +164,7 @@ func SendRequest(method string, url string, body io.Reader, expectedStatusCode i
 							"method": method,
 							"url":    url,
 							"try":    tries,
-						}).Error("Send request is failed. The request is removed from the queue")
+						}).Error("Request failed. Stop retrying.")
 						close(response)
 						quit = true
 						break
@@ -183,7 +183,7 @@ func SendRequest(method string, url string, body io.Reader, expectedStatusCode i
 				"method":   method,
 				"url":      url,
 				"response": resp,
-			}).Info("Send request is finished")
+			}).Info("Request successfull")
 			response <- resp
 		}
 	}()
