@@ -130,9 +130,10 @@ func SendRequest(method string, url string, body io.Reader, expectedStatusCode i
 					}).Warn("Send request failed in queue")
 				} else {
 					log.WithFields(log.Fields{
-						"method": method,
-						"url":    url,
-						"tries":  tries,
+						"method":   method,
+						"url":      url,
+						"tries":    tries,
+						"response": resp,
 					}).Info("Send request is successfull in queue")
 					response <- resp
 					break
@@ -156,6 +157,11 @@ func SendRequest(method string, url string, body io.Reader, expectedStatusCode i
 				tries++
 			}
 		} else {
+			log.WithFields(log.Fields{
+				"method":   method,
+				"url":      url,
+				"response": resp,
+			}).Info("Send request is finished")
 			response <- resp
 		}
 	}()
