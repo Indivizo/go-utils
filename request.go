@@ -12,6 +12,12 @@ import (
 	"github.com/dgrijalva/jwt-go"
 )
 
+const (
+	RequestRetryDelay         = 30
+	RequestRetrySlowDownLimit = 10
+	RequestRetryLimit         = 100
+)
+
 // We can't use jwt.ParseFromRequest() because it calls ParseMultipartForm() and
 // it will break MultipartReader() which is important for file upload handling.
 func ParseFromRequest(req *http.Request, keyFunc jwt.Keyfunc) (token *jwt.Token, err error) {
@@ -111,7 +117,7 @@ func SendRequest(method string, url string, body io.Reader, expectedStatusCode i
 
 			quit := false
 			tries := 1
-			delay := 30
+			delay := RequestRetryDelay
 			for {
 				select {
 				case <-cancel:
@@ -155,11 +161,11 @@ func SendRequest(method string, url string, body io.Reader, expectedStatusCode i
 					}
 
 					// Set delay.
-					if tries%10 == 0 {
+					if tries%RequestRetrySlowDownLimit == 0 {
 						delay = delay * 2
 					}
-					// Quit after 100 tries.
-					if tries == 100 {
+					// Quit after x tries.
+					if tries == RequestRetryLimit {
 						log.WithFields(log.Fields{
 							"method": method,
 							"url":    url,
