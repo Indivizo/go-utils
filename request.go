@@ -73,7 +73,7 @@ func GetMatchingPrefixLength(path, pattern string) int {
 	return i
 }
 
-func SendRequest(method string, url string, body io.Reader, expectedStatusCode int, extraHeaders ...http.Header) chan *http.Response {
+func SendRequest(method string, url string, body io.Reader, expectedStatusCode int, cancel chan bool, extraHeaders ...http.Header) chan *http.Response {
 	createRequest := func(method, url string, body io.Reader, extraHeaders ...http.Header) (req *http.Request, err error) {
 		req, err = http.NewRequest(method, url, body)
 		if err != nil {
@@ -109,52 +109,74 @@ func SendRequest(method string, url string, body io.Reader, expectedStatusCode i
 				"response": resp,
 			}).Warn("Send request failed")
 
+			quit := false
 			tries := 1
 			delay := 30
 			for {
-				time.Sleep(time.Second * time.Duration(delay))
-				req, err := createRequest(method, url, body, extraHeaders...)
-				if err != nil {
-					close(response)
-					break
-					// return response
-				}
-
-				if resp, err := client.Do(req); err != nil || resp.StatusCode != expectedStatusCode {
+				select {
+				case <-cancel:
 					log.WithFields(log.Fields{
-						"try":      tries,
-						"method":   method,
-						"url":      url,
-						"error":    err,
-						"response": resp,
-					}).Warn("Send request failed in queue")
-				} else {
-					log.WithFields(log.Fields{
-						"method":   method,
-						"url":      url,
-						"tries":    tries,
-						"response": resp,
-					}).Info("Send request is successfull in queue")
-					response <- resp
-					break
-				}
-
-				// Set delay.
-				if tries%10 == 0 {
-					delay = delay * 2
-				}
-				// Quit after 100 tries.
-				if tries == 100 {
-					log.WithFields(log.Fields{
+						"try":    tries,
 						"method": method,
 						"url":    url,
-						"try":    tries,
-					}).Error("Send request is failed. The request is removed from the queue")
+					}).Info("Send request canceled in queue")
 					close(response)
+					quit = true
 					break
+
+				default:
+					time.Sleep(time.Second * time.Duration(delay))
+
+					req, err := createRequest(method, url, body, extraHeaders...)
+					if err != nil {
+						close(response)
+						quit = true
+						break
+					}
+
+					if resp, err := client.Do(req); err != nil || resp.StatusCode != expectedStatusCode {
+						log.WithFields(log.Fields{
+							"try":      tries,
+							"method":   method,
+							"url":      url,
+							"error":    err,
+							"response": resp,
+						}).Warn("Send request failed in queue")
+					} else {
+						log.WithFields(log.Fields{
+							"method":   method,
+							"url":      url,
+							"tries":    tries,
+							"response": resp,
+						}).Info("Send request is successfull in queue")
+						response <- resp
+						quit = true
+						break
+					}
+
+					// Set delay.
+					if tries%10 == 0 {
+						delay = delay * 2
+					}
+					// Quit after 100 tries.
+					if tries == 100 {
+						log.WithFields(log.Fields{
+							"method": method,
+							"url":    url,
+							"try":    tries,
+						}).Error("Send request is failed. The request is removed from the queue")
+						close(response)
+						quit = true
+						break
+					}
+
+					tries++
 				}
 
-				tries++
+				// Break from the for loop.
+				if quit {
+					break
+				}
 			}
 		} else {
 			log.WithFields(log.Fields{
