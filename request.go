@@ -6,8 +6,16 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strings"
+	"time"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/dgrijalva/jwt-go"
+)
+
+const (
+	RequestRetryDelay         = 30
+	RequestRetrySlowDownLimit = 10
+	RequestRetryLimit         = 100
 )
 
 // We can't use jwt.ParseFromRequest() because it calls ParseMultipartForm() and
@@ -69,4 +77,122 @@ func GetMatchingPrefixLength(path, pattern string) int {
 	}
 
 	return i
+}
+
+func SendRequest(method string, url string, body io.Reader, expectedStatusCode int, cancel chan bool, extraHeaders ...http.Header) chan *http.Response {
+	createRequest := func(method, url string, body io.Reader, extraHeaders ...http.Header) (req *http.Request, err error) {
+		req, err = http.NewRequest(method, url, body)
+		if err != nil {
+			return
+		}
+		if len(extraHeaders) > 0 {
+			for _, headers := range extraHeaders {
+				for key, header := range headers {
+					for _, value := range header {
+						req.Header.Add(key, value)
+					}
+				}
+			}
+		}
+		return
+	}
+
+	response := make(chan *http.Response)
+
+	req, err := createRequest(method, url, body, extraHeaders...)
+	if err != nil {
+		close(response)
+		return response
+	}
+
+	client := &http.Client{}
+	go func() {
+		if resp, err := client.Do(req); err != nil || resp.StatusCode != expectedStatusCode {
+			log.WithFields(log.Fields{
+				"method":   method,
+				"url":      url,
+				"error":    err,
+				"response": resp,
+			}).Warn("Send request failed")
+
+			quit := false
+			tries := 1
+			delay := RequestRetryDelay
+			for {
+				select {
+				case <-cancel:
+					log.WithFields(log.Fields{
+						"try":    tries,
+						"method": method,
+						"url":    url,
+					}).Info("Request canceled")
+					close(response)
+					quit = true
+					break
+
+				default:
+					time.Sleep(time.Second * time.Duration(delay))
+
+					req, err := createRequest(method, url, body, extraHeaders...)
+					if err != nil {
+						close(response)
+						quit = true
+						break
+					}
+
+					if resp, err := client.Do(req); err != nil || resp.StatusCode != expectedStatusCode {
+						log.WithFields(log.Fields{
+							"try":      tries,
+							"method":   method,
+							"url":      url,
+							"error":    err,
+							"response": resp,
+						}).Warn("Request failed")
+					} else {
+						log.WithFields(log.Fields{
+							"method":   method,
+							"url":      url,
+							"tries":    tries,
+							"response": resp,
+						}).Info("Request successfull")
+						response <- resp
+						quit = true
+						break
+					}
+
+					// Set delay.
+					if tries%RequestRetrySlowDownLimit == 0 {
+						delay = delay * 2
+					}
+					// Quit after x tries.
+					if tries == RequestRetryLimit {
+						log.WithFields(log.Fields{
+							"method": method,
+							"url":    url,
+							"try":    tries,
+						}).Error("Request failed. Stop retrying.")
+						close(response)
+						quit = true
+						break
+					}
+
+					tries++
+				}
+
+				// Break from the for loop.
+				if quit {
+					break
+				}
+			}
+		} else {
+			log.WithFields(log.Fields{
+				"method":   method,
+				"url":      url,
+				"response": resp,
+			}).Info("Request successfull")
+			response <- resp
+		}
+	}()
+
+	return response
 }
