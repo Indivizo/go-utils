@@ -31,13 +31,23 @@ myValue := MyType{
 queryBody, _ := json.Marshal(myValue)
 contentReader := bytes.NewBuffer(queryBody)
   go func() {
-    res := utils.SendRequest("POST", "http://example.com", contentReader, http.StatusOK, http.Header{"Content-Type": []string{"application/json"}})
+    cancel := make(chan bool)
+    res := utils.SendRequest("POST", "http://example.com", contentReader, http.StatusOK, cancel, http.Header{"Content-Type": []string{"application/json"}})
     response := <-res
     if response == nil {
       log.Println("this request is failed")
     } else {
       log.Printf("cool, the reponse is: %v\n", response)
     }
+  }()
+```
+If you want to cancel the request just set it in the `cancel` chanel:
+```
+go func() {
+    cancel := make(chan bool)
+    utils.SendRequest("POST", "http://example.com", contentReader, http.StatusOK, cancel, http.Header{"Content-Type": []string{"application/json"}})
+    time.Sleep(time.Second * 5)
+    cancel <- true
   }()
 ```
 ## Error
