@@ -50,6 +50,24 @@ go func() {
     cancel <- true
   }()
 ```
+Or if you want to combine them:
+```
+go func() {
+    cancel := make(chan bool)
+    res := utils.SendRequest("POST", "http://example.com", contentReader, http.StatusOK, cancel, http.Header{"Content-Type": []string{"application/json"}})
+    go func() {
+      time.Sleep(time.Second * 5)
+      cancel <- true
+    }()
+    response := <-res
+    if response == nil {
+      log.Println("this request is failed")
+    } else {
+      log.Printf("cool, the reponse is: %v\n", response)
+    }
+  }()
+```
+
 ## Error
 
 #### ErrInvalidUrl
