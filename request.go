@@ -119,7 +119,7 @@ func SendRequest(method string, url string, body io.Reader, expectedStatusCode i
 						"try":    tries,
 						"method": method,
 						"url":    url,
-					}).Info("Send request canceled in queue")
+					}).Info("Request canceled")
 					close(response)
 					quit = true
 					break
@@ -141,14 +141,14 @@ func SendRequest(method string, url string, body io.Reader, expectedStatusCode i
 							"url":      url,
 							"error":    err,
 							"response": resp,
-						}).Warn("Send request failed in queue")
+						}).Warn("Request failed")
 					} else {
 						log.WithFields(log.Fields{
 							"method":   method,
 							"url":      url,
 							"tries":    tries,
 							"response": resp,
-						}).Info("Send request is successfull in queue")
+						}).Info("Request successfull")
 						response <- resp
 						quit = true
 						break

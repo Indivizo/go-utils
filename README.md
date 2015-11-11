@@ -35,7 +35,7 @@ contentReader := bytes.NewBuffer(queryBody)
     res := utils.SendRequest("POST", "http://example.com", contentReader, http.StatusOK, cancel, http.Header{"Content-Type": []string{"application/json"}})
     response := <-res
     if response == nil {
-      log.Println("this request is failed")
+      log.Println("request failed")
     } else {
       log.Printf("cool, the reponse is: %v\n", response)
     }
