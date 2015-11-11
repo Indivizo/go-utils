@@ -74,20 +74,29 @@ func GetMatchingPrefixLength(path, pattern string) int {
 }
 
 func SendRequest(method string, url string, body io.Reader, expectedStatusCode int, extraHeaders ...http.Header) chan *http.Response {
-	response := make(chan *http.Response)
-	req, err := http.NewRequest(method, url, body)
-	if err != nil {
-		close(response)
-		return response
-	}
-	if len(extraHeaders) > 0 {
-		for _, headers := range extraHeaders {
-			for key, header := range headers {
-				for _, value := range header {
-					req.Header.Add(key, value)
+	createRequest := func(method, url string, body io.Reader, extraHeaders ...http.Header) (req *http.Request, err error) {
+		req, err = http.NewRequest(method, url, body)
+		if err != nil {
+			return
+		}
+		if len(extraHeaders) > 0 {
+			for _, headers := range extraHeaders {
+				for key, header := range headers {
+					for _, value := range header {
+						req.Header.Add(key, value)
+					}
 				}
 			}
 		}
+		return
+	}
+
+	response := make(chan *http.Response)
+
+	req, err := createRequest(method, url, body, extraHeaders...)
+	if err != nil {
+		close(response)
+		return response
 	}
 
 	client := &http.Client{}
@@ -104,6 +113,12 @@ func SendRequest(method string, url string, body io.Reader, expectedStatusCode i
 			delay := 30
 			for {
 				time.Sleep(time.Second * time.Duration(delay))
+				req, err := createRequest(method, url, body, extraHeaders...)
+				if err != nil {
+					close(response)
+					break
+					// return response
+				}
 
 				if resp, err := client.Do(req); err != nil || resp.StatusCode != expectedStatusCode {
 					log.WithFields(log.Fields{
