@@ -68,6 +68,10 @@ go func() {
   }()
 ```
 
+## Misc
+
+#### RandomHash()
+
 ## Error
 
 #### ErrInvalidUrl
