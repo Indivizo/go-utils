@@ -80,7 +80,13 @@ func GetMatchingPrefixLength(path, pattern string) int {
 }
 
 func SendRequest(method string, url string, body io.Reader, expectedStatusCode int, cancel chan bool, extraHeaders ...http.Header) chan *http.Response {
-	createRequest := func(method, url string, body io.Reader, extraHeaders ...http.Header) (req *http.Request, err error) {
+	createRequest := func(method, url string, originalBody *io.Reader, extraHeaders ...http.Header) (req *http.Request, err error) {
+		// Rewind the io.Reader.
+		buf := new(bytes.Buffer)
+		buf.ReadFrom((*originalBody))
+		body := bytes.NewReader(buf.Bytes())
+		(*originalBody) = ioutil.NopCloser(bytes.NewBuffer(buf.Bytes()))
+
 		req, err = http.NewRequest(method, url, body)
 		if err != nil {
 			return
@@ -99,7 +105,7 @@ func SendRequest(method string, url string, body io.Reader, expectedStatusCode i
 
 	response := make(chan *http.Response)
 
-	req, err := createRequest(method, url, body, extraHeaders...)
+	req, err := createRequest(method, url, &body, extraHeaders...)
 	if err != nil {
 		close(response)
 		return response
@@ -133,7 +139,7 @@ func SendRequest(method string, url string, body io.Reader, expectedStatusCode i
 				default:
 					time.Sleep(time.Second * time.Duration(delay))
 
-					req, err := createRequest(method, url, body, extraHeaders...)
+					req, err := createRequest(method, url, &body, extraHeaders...)
 					if err != nil {
 						close(response)
 						quit = true
