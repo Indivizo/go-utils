@@ -79,44 +79,69 @@ func GetMatchingPrefixLength(path, pattern string) int {
 	return i
 }
 
-func SendRequest(method string, url string, body io.Reader, expectedStatusCode int, cancel chan bool, extraHeaders ...http.Header) chan *http.Response {
-	createRequest := func(method, url string, originalBody *io.Reader, extraHeaders ...http.Header) (req *http.Request, err error) {
-		// Rewind the io.Reader.
-		buf := new(bytes.Buffer)
-		buf.ReadFrom((*originalBody))
-		body := bytes.NewReader(buf.Bytes())
-		(*originalBody) = ioutil.NopCloser(bytes.NewBuffer(buf.Bytes()))
+// Request is a structure to store the details of a network request.
+type Request struct {
+	Method             string
+	URL                string
+	Body               io.Reader
+	ExpectedStatusCode int
+	Cancel             chan bool
+	Client             *http.Client
+	Headers            []http.Header
+}
 
-		req, err = http.NewRequest(method, url, body)
-		if err != nil {
-			return
-		}
-		if len(extraHeaders) > 0 {
-			for _, headers := range extraHeaders {
-				for key, header := range headers {
-					for _, value := range header {
-						req.Header.Add(key, value)
-					}
-				}
-			}
-		}
+// SetupDefaultValues sets up default values for the request structure.
+func (request *Request) SetupDefaultValues() {
+	if request.Method == "" {
+		request.Method = "GET"
+	}
+
+	if request.ExpectedStatusCode == 0 {
+		request.ExpectedStatusCode = 200
+	}
+
+	if request.Client == nil {
+		request.Client = &http.Client{}
+	}
+
+	if request.Cancel == nil {
+		request.Cancel = make(chan bool)
+	}
+}
+
+func createRequest(request Request) (req *http.Request, err error) {
+	if req, err = http.NewRequest(request.Method, request.URL, request.Body); err != nil {
 		return
 	}
 
+	if len(request.Headers) > 0 {
+		for _, headers := range request.Headers {
+			for key, header := range headers {
+				for _, value := range header {
+					req.Header.Add(key, value)
+				}
+			}
+		}
+	}
+
+	return
+}
+
+func SendRequest(request Request) chan *http.Response {
+	request.SetupDefaultValues()
+
 	response := make(chan *http.Response)
 
-	req, err := createRequest(method, url, &body, extraHeaders...)
+	req, err := createRequest(request)
 	if err != nil {
 		close(response)
 		return response
 	}
 
-	client := &http.Client{}
 	go func() {
-		if resp, err := client.Do(req); err != nil || resp.StatusCode != expectedStatusCode {
+		if resp, err := request.Client.Do(req); err != nil || resp.StatusCode != request.ExpectedStatusCode {
 			log.WithFields(log.Fields{
-				"method":   method,
-				"url":      url,
+				"request":  request,
 				"error":    err,
 				"response": resp,
 			}).Warn("Send request failed")
@@ -126,12 +151,11 @@ func SendRequest(method string, url string, body io.Reader, expectedStatusCode i
 			delay := RequestRetryDelay
 			for {
 				select {
-				case <-cancel:
+				case <-request.Cancel:
 					log.WithFields(log.Fields{
-						"try":    tries,
-						"method": method,
-						"url":    url,
-					}).Info("Request canceled")
+						"request": request,
+						"tries":   tries,
+					}).Info("Request cancelled")
 					close(response)
 					quit = true
 					break
@@ -139,25 +163,23 @@ func SendRequest(method string, url string, body io.Reader, expectedStatusCode i
 				default:
 					time.Sleep(time.Second * time.Duration(delay))
 
-					req, err := createRequest(method, url, &body, extraHeaders...)
+					req, err := createRequest(request)
 					if err != nil {
 						close(response)
 						quit = true
 						break
 					}
 
-					if resp, err := client.Do(req); err != nil || resp.StatusCode != expectedStatusCode {
+					if resp, err = request.Client.Do(req); err != nil || resp.StatusCode != request.ExpectedStatusCode {
 						log.WithFields(log.Fields{
-							"try":      tries,
-							"method":   method,
-							"url":      url,
+							"request":  request,
+							"tries":    tries,
 							"error":    err,
 							"response": resp,
 						}).Warn("Request failed")
 					} else {
 						log.WithFields(log.Fields{
-							"method":   method,
-							"url":      url,
+							"request":  request,
 							"tries":    tries,
 							"response": resp,
 						}).Info("Request successfull")
@@ -173,9 +195,9 @@ func SendRequest(method string, url string, body io.Reader, expectedStatusCode i
 					// Quit after x tries.
 					if tries == RequestRetryLimit {
 						log.WithFields(log.Fields{
-							"method": method,
-							"url":    url,
-							"try":    tries,
+							"request":  request,
+							"response": resp,
+							"tries":    tries,
 						}).Error("Request failed. Stop retrying.")
 						close(response)
 						quit = true
@@ -192,8 +214,7 @@ func SendRequest(method string, url string, body io.Reader, expectedStatusCode i
 			}
 		} else {
 			log.WithFields(log.Fields{
-				"method":   method,
-				"url":      url,
+				"request":  request,
 				"response": resp,
 			}).Info("Request successfull")
 			response <- resp
