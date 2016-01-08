@@ -88,6 +88,7 @@ type Request struct {
 	Cancel             chan bool
 	Client             *http.Client
 	Headers            []http.Header
+	readBuffer         *bytes.Reader
 }
 
 // SetupDefaultValues sets up default values for the request structure.
@@ -107,14 +108,29 @@ func (request *Request) SetupDefaultValues() {
 	if request.Cancel == nil {
 		request.Cancel = make(chan bool)
 	}
+
 }
 
 // GetHttpRequest returns the http.Request object based on the go-utils.Request
-func (request Request) GetHttpRequest() (req *http.Request, err error) {
-	if req, err = http.NewRequest(request.Method, request.URL, request.Body); err != nil {
+func (request *Request) GetHttpRequest() (req *http.Request, err error) {
+	// Save the body content to the internal buffer, so we can seek back in case we have to resend the body content (if the request fails).
+	if request.readBuffer == nil {
+		request.readBuffer = new(bytes.Reader)
+		buf, _ := ioutil.ReadAll(request.Body)
+		request.readBuffer = bytes.NewReader(buf)
+	}
+
+	// Seek to the beginning.
+	if _, err = request.readBuffer.Seek(0, 0); err != nil {
 		return
 	}
 
+	// Create request
+	if req, err = http.NewRequest(request.Method, request.URL, request.readBuffer); err != nil {
+		return
+	}
+
+	// Add headers.
 	if len(request.Headers) > 0 {
 		for _, headers := range request.Headers {
 			for key, header := range headers {
