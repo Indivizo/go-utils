@@ -109,7 +109,8 @@ func (request *Request) SetupDefaultValues() {
 	}
 }
 
-func createRequest(request Request) (req *http.Request, err error) {
+// GetHttpRequest returns the http.Request object based on the go-utils.Request
+func (request Request) GetHttpRequest() (req *http.Request, err error) {
 	if req, err = http.NewRequest(request.Method, request.URL, request.Body); err != nil {
 		return
 	}
@@ -132,7 +133,7 @@ func SendRequest(request Request) chan *http.Response {
 
 	response := make(chan *http.Response)
 
-	req, err := createRequest(request)
+	req, err := request.GetHttpRequest()
 	if err != nil {
 		close(response)
 		return response
@@ -163,7 +164,7 @@ func SendRequest(request Request) chan *http.Response {
 				default:
 					time.Sleep(time.Second * time.Duration(delay))
 
-					req, err := createRequest(request)
+					req, err := request.GetHttpRequest()
 					if err != nil {
 						close(response)
 						quit = true
@@ -182,7 +183,7 @@ func SendRequest(request Request) chan *http.Response {
 							"request":  request,
 							"tries":    tries,
 							"response": resp,
-						}).Info("Request successfull")
+						}).Info("Request successful")
 						response <- resp
 						quit = true
 						break
@@ -216,7 +217,7 @@ func SendRequest(request Request) chan *http.Response {
 			log.WithFields(log.Fields{
 				"request":  request,
 				"response": resp,
-			}).Info("Request successfull")
+			}).Info("Request successful")
 			response <- resp
 		}
 	}()
