@@ -32,7 +32,13 @@ queryBody, _ := json.Marshal(myValue)
 contentReader := bytes.NewBuffer(queryBody)
   go func() {
     cancel := make(chan bool)
-    res := utils.SendRequest("POST", "http://example.com", contentReader, http.StatusOK, cancel, http.Header{"Content-Type": []string{"application/json"}})
+    res := utils.SendRequest(utils.Request{
+      URL:     "http://example.com",
+      Method:  "POST",
+      Body:    contentReader,
+      Headers: []http.Header{{"Content-Type": []string{"application/json"}}},
+    })
+
     response := <-res
     if response == nil {
       log.Println("request failed")
@@ -45,7 +51,13 @@ If you want to cancel the request just set it in the `cancel` chanel:
 ```go
 go func() {
     cancel := make(chan bool)
-    utils.SendRequest("POST", "http://example.com", contentReader, http.StatusOK, cancel, http.Header{"Content-Type": []string{"application/json"}})
+    res := utils.SendRequest(utils.Request{
+      URL:     "http://example.com",
+      Method:  "POST",
+      Body:    contentReader,
+      Headers: []http.Header{{"Content-Type": []string{"application/json"}}},
+      Cancel:  cancel,
+    })
     time.Sleep(time.Second * 5)
     cancel <- true
   }()
@@ -54,7 +66,13 @@ Or if you want to combine them:
 ```go
 go func() {
     cancel := make(chan bool)
-    res := utils.SendRequest("POST", "http://example.com", contentReader, http.StatusOK, cancel, http.Header{"Content-Type": []string{"application/json"}})
+    res := utils.SendRequest(utils.Request{
+      URL:     "http://example.com",
+      Method:  "POST",
+      Body:    contentReader,
+      Headers: []http.Header{{"Content-Type": []string{"application/json"}}},
+      Cancel:  cancel,
+    })
     go func() {
       time.Sleep(time.Second * 5)
       cancel <- true
