@@ -82,7 +82,7 @@ func GetMatchingPrefixLength(path, pattern string) int {
 // Request is a structure to store the details of a network request.
 type Request struct {
 	Method             string
-	URL                string
+	URL                Url
 	Body               io.Reader
 	ExpectedStatusCode int
 	Cancel             chan bool
@@ -126,7 +126,7 @@ func (request *Request) GetHttpRequest() (req *http.Request, err error) {
 	}
 
 	// Create request
-	if req, err = http.NewRequest(request.Method, request.URL, request.readBuffer); err != nil {
+	if req, err = http.NewRequest(request.Method, request.URL.String(), request.readBuffer); err != nil {
 		return
 	}
 
