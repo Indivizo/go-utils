@@ -95,3 +95,13 @@ go func() {
 #### ErrInvalidUrl
 #### ErrInvalidMail
 #### ErrInvalidMongoIdHash
+
+## Types
+
+#### Url
+* String()
+* Validate()
+
+#### Email
+* String()
+* Validate()
