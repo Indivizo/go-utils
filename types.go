@@ -16,3 +16,16 @@ func (url Url) Validate() error {
 	}
 	return nil
 }
+
+type Email string
+
+func (email Email) String() string {
+	return (string)(email)
+}
+
+func (email Email) Validate() error {
+	if !govalidator.IsEmail(email.String()) {
+		return ErrInvalidMail
+	}
+	return nil
+}
