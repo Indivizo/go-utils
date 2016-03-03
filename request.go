@@ -115,9 +115,13 @@ func (request *Request) SetupDefaultValues() {
 func (request *Request) GetHttpRequest() (req *http.Request, err error) {
 	// Save the body content to the internal buffer, so we can seek back in case we have to resend the body content (if the request fails).
 	if request.readBuffer == nil {
-		request.readBuffer = new(bytes.Reader)
-		buf, _ := ioutil.ReadAll(request.Body)
-		request.readBuffer = bytes.NewReader(buf)
+		if request.Body != nil {
+			request.readBuffer = new(bytes.Reader)
+			buf, _ := ioutil.ReadAll(request.Body)
+			request.readBuffer = bytes.NewReader(buf)
+		} else {
+			request.readBuffer = bytes.NewReader(nil)
+		}
 	}
 
 	// Seek to the beginning.
