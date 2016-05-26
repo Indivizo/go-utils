@@ -2,6 +2,7 @@ package go_utils
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -27,6 +28,29 @@ func RenderDataAsJSON(w http.ResponseWriter, data interface{}, err error, httpSt
 	if err := encoder.Encode(&data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+}
+
+func RenderDataAsJSONP(w http.ResponseWriter, data interface{}, callback string, err error, httpStatus int, httpErrorStatus int) {
+	if err != nil {
+		if err == mgo.ErrNotFound {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+
+		http.Error(w, err.Error(), httpErrorStatus)
+		return
+	}
+
+	// Stream JSONP to the output.
+	w.Header().Set("Content-Type", "application/javascript")
+	w.WriteHeader(httpStatus)
+
+	b, err := json.Marshal(data)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+
+	fmt.Fprintf(w, "%s(%s)", callback, b)
 }
 
 // Writes the given data as a json and set the status code.
