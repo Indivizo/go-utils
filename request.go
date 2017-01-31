@@ -5,6 +5,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -88,6 +89,7 @@ type Request struct {
 	Cancel             chan bool
 	Client             *http.Client
 	Headers            []http.Header
+	Queries            url.Values
 	readBuffer         *bytes.Reader
 }
 
@@ -108,7 +110,6 @@ func (request *Request) SetupDefaultValues() {
 	if request.Cancel == nil {
 		request.Cancel = make(chan bool)
 	}
-
 }
 
 // GetHttpRequest returns the http.Request object based on the go-utils.Request
@@ -144,6 +145,9 @@ func (request *Request) GetHttpRequest() (req *http.Request, err error) {
 			}
 		}
 	}
+
+	// Add queries.
+	req.URL.RawQuery = request.Queries.Encode()
 
 	return
 }
