@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"labix.org/v2/mgo"
+	"gopkg.in/mgo.v2"
 )
 
 func RenderDataAsJSON(w http.ResponseWriter, data interface{}, err error, httpStatus int, httpErrorStatus int) {
