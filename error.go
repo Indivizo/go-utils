@@ -6,4 +6,6 @@ var (
 	ErrInvalidUrl         = errors.New("Invalid url")
 	ErrInvalidMail        = errors.New("Invalid e-mail address")
 	ErrInvalidMongoIdHash = errors.New("Invalid mongo id hash")
+
+	ErrNoTokenInRequest = errors.New("No token in request")
 )

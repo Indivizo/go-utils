@@ -30,7 +30,7 @@ func ParseFromRequest(req *http.Request, keyFunc jwt.Keyfunc) (token *jwt.Token,
 		}
 	}
 
-	return nil, jwt.ErrNoTokenInRequest
+	return nil, ErrNoTokenInRequest
 }
 
 // ReadAndRewind Reads an io.ReadCloser into an io.Reader and replaces the original source with the buffered source.
