@@ -12,6 +12,7 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/dgrijalva/jwt-go"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -169,25 +170,44 @@ func (request *Request) GetHttpRequest() (req *http.Request, err error) {
 	return
 }
 
-func SendRequest(request Request) chan *http.Response {
+func SendRequest(request Request) (response *http.Response, err error) {
+	request.SetupDefaultValues()
+
+	req, err := request.GetHttpRequest()
+	if err != nil {
+		err = errors.Wrap(err, "Getting the HTTP request")
+		return
+	}
+	log.WithFields(log.Fields{
+		"requestID": request.ID,
+		"method":    request.Method,
+		"url":       request.URL,
+		"request":   request,
+	}).Info("Sending a HTTP request...")
+
+	response, err = request.Client.Do(req)
+	logFields := log.Fields{
+		"requestID": request.ID,
+		"request":   request,
+		"error":     err,
+		"response":  response,
+	}
+	if err != nil || response.StatusCode != request.ExpectedStatusCode {
+		log.WithFields(logFields).Warn("Send request was unsuccessful")
+	} else {
+		log.WithFields(logFields).Info("Send request was successful")
+	}
+
+	return
+}
+
+func SendRequestWithRetry(request Request) chan *http.Response {
 	request.SetupDefaultValues()
 
 	response := make(chan *http.Response)
 
-	req, err := request.GetHttpRequest()
-	if err != nil {
-		close(response)
-		return response
-	}
-
 	go func() {
-		if resp, err := request.Client.Do(req); err != nil || resp.StatusCode != request.ExpectedStatusCode {
-			log.WithFields(log.Fields{
-				"request":  request,
-				"error":    err,
-				"response": resp,
-			}).Warn("Send request failed")
-
+		if resp, err := SendRequest(request); err != nil || resp.StatusCode != request.ExpectedStatusCode {
 			quit := false
 			tries := 1
 			delay := RequestRetryDelay
@@ -195,9 +215,9 @@ func SendRequest(request Request) chan *http.Response {
 				select {
 				case <-request.Cancel:
 					log.WithFields(log.Fields{
-						"request": request,
-						"tries":   tries,
-					}).Info("Request cancelled")
+						"requestID": request.ID,
+						"tries":     tries,
+					}).Warn("Request canceled")
 					close(response)
 					quit = true
 					break
@@ -205,26 +225,12 @@ func SendRequest(request Request) chan *http.Response {
 				default:
 					time.Sleep(time.Second * time.Duration(delay))
 
-					req, err := request.GetHttpRequest()
-					if err != nil {
-						close(response)
-						quit = true
-						break
-					}
-
-					if resp, err = request.Client.Do(req); err != nil || resp.StatusCode != request.ExpectedStatusCode {
+					if resp, err = SendRequest(request); err != nil || resp.StatusCode != request.ExpectedStatusCode {
 						log.WithFields(log.Fields{
-							"request":  request,
-							"tries":    tries,
-							"error":    err,
-							"response": resp,
-						}).Warn("Request failed")
+							"requestID": request.ID,
+							"tries":     tries,
+						}).Warn("Request failed with retry")
 					} else {
-						log.WithFields(log.Fields{
-							"request":  request,
-							"tries":    tries,
-							"response": resp,
-						}).Info("Request successful")
 						response <- resp
 						quit = true
 						break
@@ -237,10 +243,9 @@ func SendRequest(request Request) chan *http.Response {
 					// Quit after x tries.
 					if tries == RequestRetryLimit {
 						log.WithFields(log.Fields{
-							"request":  request,
-							"response": resp,
-							"tries":    tries,
-						}).Error("Request failed. Stop retrying.")
+							"requestID": request.ID,
+							"tries":     tries,
+						}).Warn("Request failed. Stop retrying.")
 						close(response)
 						quit = true
 						break
@@ -255,10 +260,6 @@ func SendRequest(request Request) chan *http.Response {
 				}
 			}
 		} else {
-			log.WithFields(log.Fields{
-				"request":  request,
-				"response": resp,
-			}).Info("Request successful")
 			response <- resp
 		}
 	}()
