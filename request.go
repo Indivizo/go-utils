@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"io"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -17,6 +18,8 @@ const (
 	RequestRetryDelay         = 30
 	RequestRetrySlowDownLimit = 10
 	RequestRetryLimit         = 100
+
+	httpTimeoutInSeconds = 60
 )
 
 // We can't use jwt.ParseFromRequest() because it calls ParseMultipartForm() and
@@ -100,11 +103,21 @@ func (request *Request) SetupDefaultValues() {
 	}
 
 	if request.ExpectedStatusCode == 0 {
-		request.ExpectedStatusCode = 200
+		request.ExpectedStatusCode = http.StatusOK
 	}
 
 	if request.Client == nil {
-		request.Client = &http.Client{}
+		transport := &http.Transport{
+			Dial: (&net.Dialer{
+				Timeout:   httpTimeoutInSeconds * time.Second,
+				KeepAlive: httpTimeoutInSeconds * time.Second,
+			}).Dial,
+			TLSHandshakeTimeout: httpTimeoutInSeconds * time.Second,
+		}
+		request.Client = &http.Client{
+			Transport: transport,
+			Timeout:   httpTimeoutInSeconds * time.Second,
+		}
 	}
 
 	if request.Cancel == nil {
