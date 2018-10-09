@@ -85,6 +85,7 @@ func GetMatchingPrefixLength(path, pattern string) int {
 
 // Request is a structure to store the details of a network request.
 type Request struct {
+	ID                 string
 	Method             string
 	URL                Url
 	Body               io.Reader
@@ -127,6 +128,9 @@ func (request *Request) SetupDefaultValues() {
 
 // GetHttpRequest returns the http.Request object based on the go-utils.Request
 func (request *Request) GetHttpRequest() (req *http.Request, err error) {
+	if request.ID == "" {
+		request.ID = RandomHash(10)
+	}
 	// Save the body content to the internal buffer, so we can seek back in case we have to resend the body content (if the request fails).
 	if request.readBuffer == nil {
 		if request.Body != nil {
