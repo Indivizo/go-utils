@@ -108,17 +108,37 @@ func (request *Request) SetupDefaultValues() {
 		request.ExpectedStatusCode = http.StatusOK
 	}
 
+	timeout := httpTimeoutInSeconds * time.Second
+	dial := (&net.Dialer{
+		Timeout:   timeout,
+		KeepAlive: timeout,
+	}).Dial
+	transport := &http.Transport{
+		Dial:                dial,
+		TLSHandshakeTimeout: timeout,
+	}
+
 	if request.Client == nil {
-		transport := &http.Transport{
-			Dial: (&net.Dialer{
-				Timeout:   httpTimeoutInSeconds * time.Second,
-				KeepAlive: httpTimeoutInSeconds * time.Second,
-			}).Dial,
-			TLSHandshakeTimeout: httpTimeoutInSeconds * time.Second,
-		}
 		request.Client = &http.Client{
 			Transport: transport,
-			Timeout:   httpTimeoutInSeconds * time.Second,
+			Timeout:   timeout,
+		}
+	} else {
+		if request.Client.Transport == nil {
+			request.Client.Transport = transport
+		} else {
+			if tr, ok := request.Client.Transport.(*http.Transport); ok {
+				if tr.Dial == nil {
+					tr.Dial = dial
+				}
+				if tr.TLSHandshakeTimeout == 0 {
+					tr.TLSHandshakeTimeout = timeout
+				}
+				request.Client.Transport = tr
+			}
+		}
+		if request.Client.Timeout == 0 {
+			request.Client.Timeout = timeout
 		}
 	}
 
