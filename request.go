@@ -34,11 +34,6 @@ func ParseFromRequest(req *http.Request, keyFunc jwt.Keyfunc) (token *jwt.Token,
 		}
 	}
 
-	// Looking for an access token get query parameter.
-	if tokenString := req.URL.Query().Get("access_token"); tokenString != "" {
-		return jwt.Parse(tokenString, keyFunc)
-	}
-
 	return nil, ErrNoTokenInRequest
 }
 
