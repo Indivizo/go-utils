@@ -5,13 +5,11 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
-
-	"gopkg.in/mgo.v2"
 )
 
 func RenderDataAsJSON(w http.ResponseWriter, data interface{}, err error, httpStatus int, httpErrorStatus int) {
 	if err != nil {
-		if err == mgo.ErrNotFound {
+		if IsNotFoundError(err) {
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
@@ -32,7 +30,7 @@ func RenderDataAsJSON(w http.ResponseWriter, data interface{}, err error, httpSt
 
 func RenderDataAsJSONP(w http.ResponseWriter, data interface{}, callback string, err error, httpStatus int, httpErrorStatus int) {
 	if err != nil {
-		if err == mgo.ErrNotFound {
+		if IsNotFoundError(err) {
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
