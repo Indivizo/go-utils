@@ -1,0 +1,13 @@
+# Go workspace file
+go.work
+go.work.sum
+
+# env file
+.env
+
+# Ignore JetBrains IDE project files
+.idea
+
+
+# Visual Studio Code directory
+.vscode/

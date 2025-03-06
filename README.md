@@ -92,6 +92,56 @@ go func() {
 
 ## Error
 
+### Not Found Error Handling
+
+This package provides tools for consistent handling of "not found" errors. These tools allow services to uniformly address cases when a resource cannot be found.
+
+#### ErrNotFound
+A generic error representing a "resource not found" case:
+```go
+var ErrNotFound = errors.New("resource not found")
+```
+
+#### RegisterNotFoundError()
+Allows services to register custom "not found" errors specific to their domain (e.g., a database error such as MongoDB's `mongo.ErrNoDocuments`).
+
+**Example 1:**
+```go
+import (
+	"errors"
+	"go.mongodb.org/mongo-driver/mongo"
+)
+
+// Register the MongoDB "not found" error.
+utils.RegisterNotFoundError(mongo.ErrNoDocuments)
+
+// Usage example:
+err := mongo.ErrNoDocuments
+if utils.IsNotFoundError(err) {
+	fmt.Println("This is a 'not found' error")
+}
+```
+
+
+**Example 2:**
+```go
+dbError := errors.New("database entry not found")
+utils.RegisterNotFoundError(dbError)
+```
+
+#### IsNotFoundError()
+Checks whether the given error matches `ErrNotFound` or any of the registered custom "not found" errors.
+
+**Example:**
+```go
+err := errors.New("database entry not found")
+if utils.IsNotFoundError(err) {
+    fmt.Println("This is a 'not found' error")
+}
+```
+
+## Other errors
+
 #### ErrInvalidUrl
 #### ErrInvalidMail
 #### ErrInvalidMongoIdHash

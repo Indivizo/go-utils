@@ -3,14 +3,13 @@ package go_utils
 import (
 	"bytes"
 	"io"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
 
-	"github.com/dgrijalva/jwt-go"
+	"github.com/golang-jwt/jwt/v4"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
@@ -44,7 +43,7 @@ func ReadAndRewind(readCloser *io.ReadCloser) (result io.Reader, err error) {
 
 	// Read the content
 	if readCloser != nil {
-		content, err = ioutil.ReadAll((*readCloser))
+		content, err = io.ReadAll((*readCloser))
 	}
 
 	if err != nil {
@@ -52,7 +51,7 @@ func ReadAndRewind(readCloser *io.ReadCloser) (result io.Reader, err error) {
 	}
 
 	// Restore the io.ReadCloser to its original state
-	(*readCloser) = ioutil.NopCloser(bytes.NewBuffer(content))
+	(*readCloser) = io.NopCloser(bytes.NewBuffer(content))
 
 	return bytes.NewReader(content), err
 }
@@ -109,12 +108,12 @@ func (request *Request) SetupDefaultValues() {
 	}
 
 	timeout := httpTimeoutInSeconds * time.Second
-	dial := (&net.Dialer{
+	dialer := &net.Dialer{
 		Timeout:   timeout,
 		KeepAlive: timeout,
-	}).Dial
+	}
 	transport := &http.Transport{
-		Dial:                dial,
+		DialContext:         dialer.DialContext,
 		TLSHandshakeTimeout: timeout,
 	}
 
@@ -128,8 +127,8 @@ func (request *Request) SetupDefaultValues() {
 			request.Client.Transport = transport
 		} else {
 			if tr, ok := request.Client.Transport.(*http.Transport); ok {
-				if tr.Dial == nil {
-					tr.Dial = dial
+				if tr.DialContext == nil {
+					tr.DialContext = dialer.DialContext
 				}
 				if tr.TLSHandshakeTimeout == 0 {
 					tr.TLSHandshakeTimeout = timeout
@@ -156,7 +155,7 @@ func (request *Request) GetHttpRequest() (req *http.Request, err error) {
 	if request.readBuffer == nil {
 		if request.Body != nil {
 			request.readBuffer = new(bytes.Reader)
-			buf, _ := ioutil.ReadAll(request.Body)
+			buf, _ := io.ReadAll(request.Body)
 			request.readBuffer = bytes.NewReader(buf)
 		} else {
 			request.readBuffer = bytes.NewReader(nil)
